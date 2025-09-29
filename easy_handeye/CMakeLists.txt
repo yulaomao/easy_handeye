@@ -23,7 +23,7 @@ install(PROGRAMS
 
 # Install launch files
 install(DIRECTORY
-  launch/
+  launch_ros2/
   DESTINATION share/${PROJECT_NAME}/launch/
 )
 

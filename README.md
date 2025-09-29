@@ -1,4 +1,4 @@
-# easy_handeye: automated, hardware-independent Hand-Eye Calibration for ROS1
+# easy_handeye: automated, hardware-independent Hand-Eye Calibration for ROS2 Humble
 
 <img src="docs/img/eye_on_base_ndi_pic.png" width="345"/> <img src="docs/img/05_calibrated_rviz.png" width="475"/> 
 
@@ -20,7 +20,7 @@ You can try out this software in a simulator, through the
 [easy_handeye_demo package](https://github.com/marcoesposito1988/easy_handeye_demo). This package also serves as an 
 example for integrating `easy_handeye` into your own launch scripts.
 
-**NOTE:** a (development) ROS2 version of this package is available [here](https://github.com/marcoesposito1988/easy_handeye2)
+**NOTE:** This is the ROS2 Humble port of the original ROS1 package. The original ROS1 version is available [here](https://github.com/IFL-CAMP/easy_handeye)
 
 ## News
 - version 0.4.3
@@ -65,21 +65,26 @@ eye-on-base             |  eye-on-hand
 
 ## Getting started
 
-- clone this repository into your catkin workspace:
-```
-cd ~/catkin_ws/src  # replace with path to your workspace
-git clone https://github.com/IFL-CAMP/easy_handeye
+- clone this repository into your ROS2 workspace:
+```bash
+cd ~/ros2_ws/src  # replace with path to your workspace
+git clone https://github.com/yulaomao/easy_handeye.git
 ```
 
 - satisfy dependencies
-```
-cd ..  # now we are inside ~/catkin_ws
-rosdep install -iyr --from-paths src
+```bash
+cd ..  # now we are inside ~/ros2_ws
+rosdep install -iyr --from-paths src --ignore-src
 ```
 
 - build
+```bash
+colcon build --packages-select easy_handeye_msgs easy_handeye rqt_easy_handeye
 ```
-catkin build
+
+- source the workspace
+```bash
+source install/setup.bash
 ```
 
 ## Usage
@@ -90,62 +95,89 @@ overridden to specify the correct tf reference frames, and to avoid conflicts wh
 multiple calibrations at once.
 
 The suggested integration is:
-- create a new `handeye_calibrate.launch` file, which includes the robot's and tracking system's launch files, as well as 
-`easy_handeye`'s `calibrate.launch` as illustrated below in the next section "Calibration"
-- in each of your launch files where you need the result of the calibration, include `easy_handeye`'s `publish.launch` 
+- create a new `handeye_calibrate.launch.py` file, which includes the robot's and tracking system's launch files, as well as 
+`easy_handeye`'s `calibrate.launch.py` as illustrated below in the next section "Calibration"
+- in each of your launch files where you need the result of the calibration, include `easy_handeye`'s `publish.launch.py` 
 as illustrated below in the section "Publishing" 
 
 ### Calibration
 
-For both use cases, you can either launch the `calibrate.launch`
+For both use cases, you can either launch the `calibrate.launch.py`
 launch file, or you can include it in another launchfile as shown below. Either
 way, the launch file will bring up a calibration script. By default, the script will interactively ask you
 to accept or discard each sample. At the end, the parameters will be saved in a yaml file.
 
 #### eye-in-hand
 
-```xml
-<launch>
-  <!-- (start your robot's MoveIt! stack, e.g. include its moveit_planning_execution.launch) -->
-  <!-- (start your tracking system's ROS driver) -->
+```python
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 
-  <include file="$(find easy_handeye)/launch/calibrate.launch">
-    <arg name="eye_on_hand" value="true"/>
-
-    <!-- you can choose any identifier, as long as you use the same for publishing the calibration -->
-    <arg name="namespace_prefix" value="my_eih_calib"/>
-
-    <!-- fill in the following parameters according to your robot's published tf frames -->
-    <arg name="robot_base_frame" value="/base_link"/>
-    <arg name="robot_effector_frame" value="/ee_link"/>
-
-    <!-- fill in the following parameters according to your tracking system's published tf frames -->
-    <arg name="tracking_base_frame" value="/optical_origin"/>
-    <arg name="tracking_marker_frame" value="/optical_target"/>
-  </include>
-</launch>
+def generate_launch_description():
+    return LaunchDescription([
+        # (start your robot's MoveIt2 stack, e.g. include its launch file)
+        # (start your tracking system's ROS2 driver)
+        
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                PathJoinSubstitution([
+                    FindPackageShare('easy_handeye'),
+                    'launch',
+                    'calibrate.launch.py'
+                ])
+            ]),
+            launch_arguments={
+                'eye_on_hand': 'true',
+                # you can choose any identifier, as long as you use the same for publishing the calibration
+                'namespace_prefix': 'my_eih_calib',
+                # fill in the following parameters according to your robot's published tf frames
+                'robot_base_frame': 'base_link',
+                'robot_effector_frame': 'ee_link',
+                # fill in the following parameters according to your tracking system's published tf frames  
+                'tracking_base_frame': 'optical_origin',
+                'tracking_marker_frame': 'optical_target',
+            }.items()
+        )
+    ])
 ```
 
 #### eye-on-base
 
-```xml
-<launch>
-  <!-- (start your robot's MoveIt! stack, e.g. include its moveit_planning_execution.launch) -->
-  <!-- (start your tracking system's ROS driver) -->
+```python
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 
-  <include file="$(find easy_handeye)/launch/calibrate.launch">
-    <arg name="eye_on_hand" value="false"/>
-    <arg name="namespace_prefix" value="my_eob_calib"/>
-
-    <!-- fill in the following parameters according to your robot's published tf frames -->
-    <arg name="robot_base_frame" value="/base_link"/>
-    <arg name="robot_effector_frame" value="/ee_link"/>
-
-    <!-- fill in the following parameters according to your tracking system's published tf frames -->
-    <arg name="tracking_base_frame" value="/optical_origin"/>
-    <arg name="tracking_marker_frame" value="/optical_target"/>
-  </include>
-</launch>
+def generate_launch_description():
+    return LaunchDescription([
+        # (start your robot's MoveIt2 stack, e.g. include its launch file)
+        # (start your tracking system's ROS2 driver)
+        
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource([
+                PathJoinSubstitution([
+                    FindPackageShare('easy_handeye'),
+                    'launch',
+                    'calibrate.launch.py'
+                ])
+            ]),
+            launch_arguments={
+                'eye_on_hand': 'false',
+                'namespace_prefix': 'my_eob_calib',
+                # fill in the following parameters according to your robot's published tf frames
+                'robot_base_frame': 'base_link',
+                'robot_effector_frame': 'ee_link',
+                # fill in the following parameters according to your tracking system's published tf frames  
+                'tracking_base_frame': 'optical_origin',
+                'tracking_marker_frame': 'optical_target',
+            }.items()
+        )
+    ])
 ```
 
 
