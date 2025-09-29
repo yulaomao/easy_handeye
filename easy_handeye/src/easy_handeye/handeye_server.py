@@ -1,12 +1,22 @@
 import itertools
 
 import easy_handeye_msgs as ehm
-import rospy
-import std_msgs
-import std_srvs
+try:
+    # ROS2 imports
+    import rclpy
+    from rclpy.node import Node
+    import std_msgs.msg
+    from std_srvs.srv import Empty
+    ROS2_AVAILABLE = True
+except ImportError:
+    # ROS1 imports
+    import rospy
+    import std_srvs
+    from std_srvs import srv
+    ROS2_AVAILABLE = False
+    
 from easy_handeye_msgs import msg, srv
 from std_msgs import msg
-from std_srvs import srv
 
 import easy_handeye as hec
 from easy_handeye.handeye_calibration import HandeyeCalibration, HandeyeCalibrationParameters
@@ -14,38 +24,72 @@ from easy_handeye.handeye_calibration_backend_opencv import HandeyeCalibrationBa
 from easy_handeye.handeye_sampler import HandeyeSampler
 
 
-class HandeyeServer:
+class HandeyeServer(Node if ROS2_AVAILABLE else object):
     def __init__(self, namespace=None):
-        if namespace is None:
-            namespace = rospy.get_namespace()
-        self.parameters = HandeyeCalibrationParameters.init_from_parameter_server(namespace)
+        if ROS2_AVAILABLE:  # ROS2
+            super().__init__('easy_handeye')
+            
+            if namespace is None:
+                namespace = self.get_namespace()
+                
+            self.parameters = HandeyeCalibrationParameters.init_from_parameter_server(namespace, self)
 
-        self.sampler = HandeyeSampler(handeye_parameters=self.parameters)
-        self.calibration_backends = {'OpenCV': HandeyeCalibrationBackendOpenCV()}
-        self.calibration_algorithm = 'OpenCV/Tsai-Lenz'
+            self.sampler = HandeyeSampler(handeye_parameters=self.parameters, node=self)
+            self.calibration_backends = {'OpenCV': HandeyeCalibrationBackendOpenCV()}
+            self.calibration_algorithm = 'OpenCV/Tsai-Lenz'
 
-        # setup calibration services and topics
+            # setup calibration services and topics
+            self.list_algorithms_service = self.create_service(ehm.srv.ListAlgorithms, 
+                                                               hec.LIST_ALGORITHMS_TOPIC, self.list_algorithms)
+            self.set_algorithm_service = self.create_service(ehm.srv.SetAlgorithm, 
+                                                             hec.SET_ALGORITHM_TOPIC, self.set_algorithm)
+            self.get_sample_list_service = self.create_service(ehm.srv.TakeSample, 
+                                                               hec.GET_SAMPLE_LIST_TOPIC, self.get_sample_lists)
+            self.take_sample_service = self.create_service(ehm.srv.TakeSample, 
+                                                           hec.TAKE_SAMPLE_TOPIC, self.take_sample)
+            self.remove_sample_service = self.create_service(ehm.srv.RemoveSample, 
+                                                             hec.REMOVE_SAMPLE_TOPIC, self.remove_sample)
+            self.compute_calibration_service = self.create_service(ehm.srv.ComputeCalibration, 
+                                                                   hec.COMPUTE_CALIBRATION_TOPIC, self.compute_calibration)
+            self.save_calibration_service = self.create_service(Empty, 
+                                                                hec.SAVE_CALIBRATION_TOPIC, self.save_calibration)
 
-        self.list_algorithms_service = rospy.Service(hec.LIST_ALGORITHMS_TOPIC,
-                                                     ehm.srv.ListAlgorithms, self.list_algorithms)
-        self.set_algorithm_service = rospy.Service(hec.SET_ALGORITHM_TOPIC, ehm.srv.SetAlgorithm, self.set_algorithm)
-        self.get_sample_list_service = rospy.Service(hec.GET_SAMPLE_LIST_TOPIC,
-                                                     ehm.srv.TakeSample, self.get_sample_lists)
-        self.take_sample_service = rospy.Service(hec.TAKE_SAMPLE_TOPIC,
-                                                 ehm.srv.TakeSample, self.take_sample)
-        self.remove_sample_service = rospy.Service(hec.REMOVE_SAMPLE_TOPIC,
-                                                   ehm.srv.RemoveSample, self.remove_sample)
-        self.compute_calibration_service = rospy.Service(hec.COMPUTE_CALIBRATION_TOPIC,
-                                                         ehm.srv.ComputeCalibration, self.compute_calibration)
-        self.save_calibration_service = rospy.Service(hec.SAVE_CALIBRATION_TOPIC,
-                                                      std_srvs.srv.Empty, self.save_calibration)
+            # Useful for secondary input sources (e.g. programmable buttons on robot)
+            self.take_sample_topic = self.create_subscription(std_msgs.msg.Empty, 
+                                                              hec.TAKE_SAMPLE_TOPIC, self.take_sample, 10)
+            self.compute_calibration_topic = self.create_subscription(std_msgs.msg.Empty, 
+                                                                      hec.REMOVE_SAMPLE_TOPIC, self.remove_last_sample, 10)
 
-        # Useful for secondary input sources (e.g. programmable buttons on robot)
-        self.take_sample_topic = rospy.Subscriber(hec.TAKE_SAMPLE_TOPIC,
-                                                  std_msgs.msg.Empty, self.take_sample)
-        self.compute_calibration_topic = rospy.Subscriber(hec.REMOVE_SAMPLE_TOPIC,
-                                                          std_msgs.msg.Empty,
-                                                          self.remove_last_sample)
+        else:  # ROS1
+            if namespace is None:
+                namespace = rospy.get_namespace()
+            self.parameters = HandeyeCalibrationParameters.init_from_parameter_server(namespace)
+
+            self.sampler = HandeyeSampler(handeye_parameters=self.parameters)
+            self.calibration_backends = {'OpenCV': HandeyeCalibrationBackendOpenCV()}
+            self.calibration_algorithm = 'OpenCV/Tsai-Lenz'
+
+            # setup calibration services and topics
+            self.list_algorithms_service = rospy.Service(hec.LIST_ALGORITHMS_TOPIC,
+                                                         ehm.srv.ListAlgorithms, self.list_algorithms)
+            self.set_algorithm_service = rospy.Service(hec.SET_ALGORITHM_TOPIC, ehm.srv.SetAlgorithm, self.set_algorithm)
+            self.get_sample_list_service = rospy.Service(hec.GET_SAMPLE_LIST_TOPIC,
+                                                         ehm.srv.TakeSample, self.get_sample_lists)
+            self.take_sample_service = rospy.Service(hec.TAKE_SAMPLE_TOPIC,
+                                                     ehm.srv.TakeSample, self.take_sample)
+            self.remove_sample_service = rospy.Service(hec.REMOVE_SAMPLE_TOPIC,
+                                                       ehm.srv.RemoveSample, self.remove_sample)
+            self.compute_calibration_service = rospy.Service(hec.COMPUTE_CALIBRATION_TOPIC,
+                                                             ehm.srv.ComputeCalibration, self.compute_calibration)
+            self.save_calibration_service = rospy.Service(hec.SAVE_CALIBRATION_TOPIC,
+                                                          std_srvs.srv.Empty, self.save_calibration)
+
+            # Useful for secondary input sources (e.g. programmable buttons on robot)
+            self.take_sample_topic = rospy.Subscriber(hec.TAKE_SAMPLE_TOPIC,
+                                                      std_msgs.msg.Empty, self.take_sample)
+            self.compute_calibration_topic = rospy.Subscriber(hec.REMOVE_SAMPLE_TOPIC,
+                                                              std_msgs.msg.Empty,
+                                                              self.remove_last_sample)
 
         self.last_calibration = None
 

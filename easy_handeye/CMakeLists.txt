@@ -1,24 +1,49 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.8)
 project(easy_handeye)
 
-find_package(catkin REQUIRED)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-catkin_python_setup()
+# find dependencies
+find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_python REQUIRED)
 
-catkin_package()
+# Install Python modules
+ament_python_install_package(${PROJECT_NAME})
 
-catkin_install_python(PROGRAMS
-    scripts/calibrate.py
-    scripts/robot.py
-    scripts/handeye_calibration_commander.py
-    scripts/publish.py
-    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+# Install Python executables
+install(PROGRAMS
+  scripts/calibrate.py
+  scripts/robot.py
+  scripts/handeye_calibration_commander.py
+  scripts/publish.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
+# Install launch files
+install(DIRECTORY
+  launch_ros2/
+  DESTINATION share/${PROJECT_NAME}/launch/
+)
+
+# Install config files  
 install(FILES
-    launch/calibrate.launch
-    launch/publish.launch
-    launch/rqt_${PROJECT_NAME}.perspective
-    launch/rviz_${PROJECT_NAME}.config
-    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
+  launch/rqt_${PROJECT_NAME}.perspective
+  launch/rviz_${PROJECT_NAME}.config
+  DESTINATION share/${PROJECT_NAME}/config/
 )
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  # the following line skips the linter which checks for copyrights
+  # comment the line when a copyright and license is added to all source files
+  set(ament_cmake_copyright_FOUND TRUE)
+  # the following line skips cpplint (only works in a git repo)
+  # comment the line when this package is in a git repo and when
+  # a copyright and license is added to all source files
+  set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()
