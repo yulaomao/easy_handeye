@@ -22,7 +22,24 @@ example for integrating `easy_handeye` into your own launch scripts.
 
 **NOTE:** This is the ROS2 Humble port of the original ROS1 package. The original ROS1 version is available [here](https://github.com/IFL-CAMP/easy_handeye)
 
+## Migration to ROS2 Humble
+
+This package has been fully migrated from ROS1 to ROS2 Humble with the following changes:
+
+- **Build System**: Migrated from catkin to colcon with ament_cmake
+- **Python API**: Updated from rospy to rclpy 
+- **Launch Files**: Converted from XML format to Python format
+- **Parameter Handling**: Updated to use ROS2 parameter system
+- **Service/Topic APIs**: Updated to ROS2 interfaces
+- **MoveIt Integration**: Added compatibility layer for MoveIt2 (may require additional setup)
+
+The core hand-eye calibration functionality remains unchanged and fully compatible.
+
 ## News
+- version 0.4.3-ros2 
+    - Full ROS2 Humble port with colcon build system
+    - Python launch files for better flexibility  
+    - Backward compatibility layer during transition
 - version 0.4.3
     - documentation and bug fixes
 - version 0.4.2
@@ -178,6 +195,30 @@ def generate_launch_description():
             }.items()
         )
     ])
+```
+
+#### Command Line Usage
+
+You can also launch the calibration directly from the command line:
+
+```bash
+# For eye-in-hand calibration
+ros2 launch easy_handeye calibrate.launch.py \
+    eye_on_hand:=true \
+    namespace_prefix:=my_eih_calib \
+    robot_base_frame:=base_link \
+    robot_effector_frame:=ee_link \
+    tracking_base_frame:=optical_origin \
+    tracking_marker_frame:=optical_target
+
+# For eye-on-base calibration  
+ros2 launch easy_handeye calibrate.launch.py \
+    eye_on_hand:=false \
+    namespace_prefix:=my_eob_calib \
+    robot_base_frame:=base_link \
+    robot_effector_frame:=ee_link \
+    tracking_base_frame:=optical_origin \
+    tracking_marker_frame:=optical_target
 ```
 
 
