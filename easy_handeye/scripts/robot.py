@@ -1,20 +1,23 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import rospy
-
+import rclpy
 from easy_handeye.handeye_server_robot import HandeyeServerRobot
 
 
-def main():
-    rospy.init_node('easy_handeye_calibration_server_robot')
-    while rospy.get_time() == 0.0:
+def main(args=None):
+    rclpy.init(args=args)
+    
+    # Get calibration_namespace parameter
+    # In ROS2, we'll handle this in the HandeyeServerRobot class
+    handeye_server_robot = HandeyeServerRobot()
+    
+    try:
+        rclpy.spin(handeye_server_robot)
+    except KeyboardInterrupt:
         pass
-
-    calibration_namespace=rospy.get_param('~calibration_namespace')
-
-    cw = HandeyeServerRobot(namespace=calibration_namespace)
-
-    rospy.spin()
+    finally:
+        handeye_server_robot.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':

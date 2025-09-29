@@ -1,18 +1,21 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-import rospy
-
+import rclpy
 from easy_handeye.handeye_server import HandeyeServer
 
 
-def main():
-    rospy.init_node('easy_handeye')
-    while rospy.get_time() == 0.0:
+def main(args=None):
+    rclpy.init(args=args)
+    
+    handeye_server = HandeyeServer()
+    
+    try:
+        rclpy.spin(handeye_server)
+    except KeyboardInterrupt:
         pass
-
-    cw = HandeyeServer()
-
-    rospy.spin()
+    finally:
+        handeye_server.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':
